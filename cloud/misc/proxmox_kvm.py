@@ -604,6 +604,19 @@ EXAMPLES = '''
     name        : spynal
     node        : sabrewulf
     state       : current
+
+# Clone VM from template ( or another VM )
+- proxmox_kvm:
+       api_user    : tfm@pve
+       api_password: secret
+       api_host    : helldorado
+       clone       : 555
+       vmid        : 666
+       node        : proxmox2
+       name        : onetest
+       storage     : 'stor2'
+       format      : 'qcow2'
+       timeout     : 300
 '''
 
 RETURN = '''
@@ -745,7 +758,11 @@ def create_vm(module, proxmox, vmid, node, name, memory, cpu, cores, sockets, ti
   if module.params['api_user'] != "root@pam" and module.params['skiplock'] is not None:
     module.fail_json(msg='skiplock parameter require root@pam user. ')
 
-  taskid = getattr(proxmox_node, VZ_TYPE).create(vmid=vmid, name=name, memory=memory, cpu=cpu, cores=cores, sockets=sockets, **kwargs)
+  if module.params['clone'] == 'None':
+    taskid = getattr(proxmox_node, VZ_TYPE).create(vmid=vmid, name=name, memory=memory, cpu=cpu, cores=cores, sockets=sockets, **kwargs)
+  else:
+    taskid = proxmox_node.qemu(module.params['clone']).clone.post(newid=vmid, full='1', name=name, storage=module.params['storage'], format=module.params['format'])
+
 
   while timeout:
       if ( proxmox_node.tasks(taskid).status.get()['status'] == 'stopped'
@@ -855,6 +872,9 @@ def main():
       vga = dict(default='std', choices=['std', 'cirrus', 'vmware', 'qxl', 'serial0', 'serial1', 'serial2', 'serial3', 'qxl2', 'qxl3', 'qxl4']),
       virtio = dict(type='dict', default=None),
       vmid = dict(type='int', default=None),
+      clone = dict(type='int', default=None),
+      storage = dict(type='str'),
+      format = dict(type='str'),
       watchdog = dict(),
     )
   )
